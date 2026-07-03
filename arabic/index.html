@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<meta name="theme-color" content="#0d1117"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="Mizan Arabic"/>
+<link rel="manifest" href="manifest.json"/>
+<link rel="icon" href="icon-192.png"/>
+<title>Mizan Arabic — صرف ونحو</title>
+<style>
+:root{
+  --bg:#0d1117;--bg2:#161b22;--bg3:#1c2230;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.12);
+  --gold:#c9a84c;--gold-dim:rgba(201,168,76,0.14);--gold-glow:rgba(201,168,76,0.28);--gold-hi:#e8c96a;
+  --green:#3fb950;--green-dim:rgba(63,185,80,0.12);
+  --red:#f85149;--red-dim:rgba(248,81,73,0.12);--blue:#58a6ff;--blue-dim:rgba(88,166,255,0.12);
+  --purple:#a371f7;--purple-dim:rgba(163,113,247,0.12);
+  --text:#e6edf3;--text2:#8b949e;--text3:#484f58;
+  --r:12px;--r-sm:7px;
+  --mono:'SF Mono','Fira Code',monospace;
+  --arfont:'Amiri','Scheherazade New','Noto Naskh Arabic','Traditional Arabic','Arabic Typesetting',serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{height:100%;font-size:16px;scroll-behavior:smooth}
+body{min-height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;line-height:1.5;-webkit-font-smoothing:antialiased;overscroll-behavior:none}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;-webkit-tap-highlight-color:transparent}
+.shell{display:flex;flex-direction:column;min-height:100vh;max-width:720px;margin:0 auto;padding:0 14px}
+
+.ar{font-family:var(--arfont);direction:rtl;unicode-bidi:embed}
+.ar.big{display:block;font-size:1.35rem;line-height:2;text-align:center;padding:4px 0}
+
+/* topbar */
+.topbar{position:sticky;top:0;z-index:100;background:rgba(13,17,23,0.92);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid var(--border);margin:0 -14px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.brand{display:flex;align-items:center;gap:9px}
+.brand-char{font-size:24px;color:var(--gold);line-height:1;font-family:var(--arfont);filter:drop-shadow(0 0 8px var(--gold-glow))}
+.brand-name{font-size:16px;font-weight:700;letter-spacing:-0.3px}
+.brand-sub{font-size:10px;color:var(--text3);font-family:var(--mono);letter-spacing:.5px;text-transform:uppercase}
+.streak-chip{font-size:11px;font-family:var(--mono);color:var(--gold);background:var(--gold-dim);border:1px solid rgba(201,168,76,.3);padding:4px 10px;border-radius:20px;white-space:nowrap}
+
+/* nav */
+.nav-tabs{display:flex;gap:4px;padding:12px 0 0;overflow-x:auto;scrollbar-width:none}
+.nav-tabs::-webkit-scrollbar{display:none}
+.nav-tab{padding:7px 15px;border-radius:20px;font-size:13px;font-weight:500;color:var(--text2);background:var(--bg2);border:1px solid var(--border);white-space:nowrap;transition:all .15s ease;flex-shrink:0}
+.nav-tab:hover{color:var(--text);border-color:var(--border2)}
+.nav-tab.active{background:var(--gold-dim);border-color:var(--gold);color:var(--gold)}
+.nav-tab .badge{display:inline-block;min-width:17px;text-align:center;margin-left:5px;font-size:10px;font-family:var(--mono);background:var(--red);color:#fff;border-radius:9px;padding:0 4px;vertical-align:1px}
+
+.view{display:none;padding-bottom:90px}
+.view.active{display:block}
+.sec-head{display:flex;align-items:center;justify-content:space-between;padding:18px 0 10px}
+.sec-title{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--text3)}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:15px;margin-bottom:10px}
+.muted{color:var(--text2);font-size:13px}
+.tiny{color:var(--text3);font-size:11px}
+
+/* summary strip */
+.summary-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:8px 0 6px}
+.sum-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:11px 13px;text-align:center}
+.sum-val{font-size:22px;font-weight:700;letter-spacing:-.5px;line-height:1;margin-bottom:3px}
+.sum-val.gold{color:var(--gold)}.sum-val.green{color:var(--green)}.sum-val.blue{color:var(--blue)}.sum-val.purple{color:var(--purple)}
+.sum-lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;font-weight:500}
+
+/* progress bars */
+.progress-track{height:6px;background:var(--bg3);border-radius:3px;overflow:hidden}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--gold),var(--gold-hi));border-radius:3px;transition:width .4s ease}
+.progress-fill.blue{background:linear-gradient(90deg,#3d7dc4,var(--blue))}
+.progress-fill.purple{background:linear-gradient(90deg,#7d55c7,var(--purple))}
+.progress-fill.green{background:linear-gradient(90deg,#2f9440,var(--green))}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;background:var(--gold);color:#0d1117;font-size:13px;font-weight:700;padding:10px 18px;border-radius:var(--r-sm);transition:all .15s}
+.btn:hover{background:var(--gold-hi)}
+.btn.ghost{background:var(--bg3);color:var(--text);border:1px solid var(--border2);font-weight:500}
+.btn.ghost:hover{border-color:var(--gold);color:var(--gold)}
+.btn.small{padding:6px 12px;font-size:12px}
+.btn.danger{background:var(--red-dim);color:var(--red);border:1px solid rgba(248,81,73,.3);font-weight:500}
+.btn:disabled{opacity:.45;pointer-events:none}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+/* learn: units & lessons */
+.track-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:16px 0 6px}
+.track-title{font-size:17px;font-weight:700}
+.track-title .ar{color:var(--gold);margin-left:6px}
+.unit{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);margin-bottom:10px;overflow:hidden}
+.unit.locked{opacity:.62}
+.unit-head{display:flex;align-items:center;gap:12px;padding:13px 15px;cursor:pointer}
+.unit-head:hover{background:var(--bg3)}
+.unit-num{width:30px;height:30px;border-radius:50%;background:var(--bg3);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:12px;font-family:var(--mono);color:var(--text2);flex-shrink:0}
+.unit.complete .unit-num{background:var(--gold);border-color:var(--gold);color:#0d1117;font-weight:700}
+.unit-name{flex:1;min-width:0}
+.unit-name b{font-size:14px}
+.unit-name .ar{color:var(--gold);font-size:15px}
+.unit-meta{font-size:11px;color:var(--text3);display:flex;gap:8px;align-items:center;margin-top:2px}
+.mastery-pill{font-size:10px;font-family:var(--mono);padding:2px 7px;border-radius:9px;background:var(--bg3);border:1px solid var(--border);color:var(--text2)}
+.mastery-pill.hi{background:var(--green-dim);color:var(--green);border-color:rgba(63,185,80,.3)}
+.mastery-pill.mid{background:var(--gold-dim);color:var(--gold);border-color:rgba(201,168,76,.3)}
+.unit-body{display:none;border-top:1px solid var(--border);padding:8px 15px 13px}
+.unit.open .unit-body{display:block}
+.lesson-row{display:flex;align-items:center;gap:11px;padding:9px 4px;border-bottom:1px solid var(--border);cursor:pointer}
+.lesson-row:last-of-type{border-bottom:none}
+.lesson-row:hover .lesson-title{color:var(--gold)}
+.lesson-check{width:20px;height:20px;border-radius:6px;flex-shrink:0;border:1.5px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:11px;background:var(--bg)}
+.lesson-row.done .lesson-check{background:var(--gold);border-color:var(--gold);color:#0d1117;font-weight:700}
+.lesson-row.tested .lesson-check{background:var(--blue);border-color:var(--blue);color:#0d1117;font-weight:700}
+.lesson-title{font-size:13px;font-weight:500;flex:1;transition:color .15s}
+.lesson-title .ar{color:var(--text2);font-size:13px;margin-right:6px}
+.lesson-score{font-size:10px;font-family:var(--mono);color:var(--text3)}
+.unit-actions{display:flex;gap:8px;padding-top:10px}
+
+/* lesson / quiz overlay */
+.overlay{position:fixed;inset:0;background:var(--bg);z-index:500;display:none;overflow-y:auto}
+.overlay.open{display:block}
+.overlay-inner{max-width:720px;margin:0 auto;padding:0 16px 60px}
+.overlay-top{position:sticky;top:0;background:rgba(13,17,23,.95);backdrop-filter:blur(12px);z-index:5;display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--border);margin:0 -16px;padding-left:16px;padding-right:16px}
+.overlay-title{font-size:15px;font-weight:700;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.close-x{width:32px;height:32px;border-radius:var(--r-sm);background:var(--bg2);border:1px solid var(--border);color:var(--text2);font-size:15px;flex-shrink:0}
+.close-x:hover{color:var(--red);border-color:var(--red)}
+.lesson-body{padding:18px 0}
+.lesson-body h2{font-size:20px;margin-bottom:2px}
+.lesson-body h2 .ar{color:var(--gold)}
+.lesson-body p{margin:10px 0;font-size:14px;color:var(--text)}
+.lesson-body ul{margin:10px 0 10px 20px;font-size:14px}
+.lesson-body li{margin:6px 0}
+.lesson-body .ar{font-size:1.1em}
+table.conj{border-collapse:collapse;margin:12px auto;font-size:14px}
+table.conj th,table.conj td{border:1px solid var(--border2);padding:6px 14px;text-align:center}
+table.conj th{background:var(--bg3);font-size:11px;color:var(--text2);text-transform:uppercase}
+table.conj td.ar{font-size:16px}
+.example-card{background:var(--bg2);border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:var(--r-sm);padding:12px 14px;margin:10px 0}
+.example-ar{font-family:var(--arfont);direction:rtl;font-size:1.45rem;line-height:2;text-align:right}
+.example-src{font-size:11px;color:var(--gold);font-family:var(--mono);margin-top:4px}
+.example-note{font-size:12.5px;color:var(--text2);margin-top:4px}
+
+/* quiz */
+.quiz-progress{display:flex;gap:5px;padding:16px 0 4px}
+.qdot{height:5px;flex:1;border-radius:3px;background:var(--bg3)}
+.qdot.cur{background:var(--gold)}
+.qdot.right{background:var(--green)}
+.qdot.wrong{background:var(--red)}
+.quiz-q{font-size:16px;font-weight:600;padding:14px 0 4px}
+.quiz-ar{font-family:var(--arfont);direction:rtl;font-size:1.6rem;line-height:2;text-align:center;padding:8px;background:var(--bg2);border-radius:var(--r);margin:8px 0}
+.quiz-opts{display:flex;flex-direction:column;gap:8px;padding:10px 0}
+.quiz-opt{text-align:left;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r-sm);padding:12px 14px;font-size:14px;transition:all .15s}
+.quiz-opt:hover{border-color:var(--gold)}
+.quiz-opt.sel-right{background:var(--green-dim);border-color:var(--green);color:var(--green)}
+.quiz-opt.sel-wrong{background:var(--red-dim);border-color:var(--red);color:var(--red)}
+.quiz-opt.reveal{border-color:var(--green);color:var(--green)}
+.quiz-opt:disabled{pointer-events:none}
+.quiz-exp{display:none;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-sm);padding:11px 13px;font-size:13px;color:var(--text2);margin:6px 0}
+.quiz-exp.show{display:block}
+.quiz-next{padding:12px 0}
+.quiz-result{text-align:center;padding:40px 0}
+.quiz-result .pct{font-size:52px;font-weight:800;letter-spacing:-2px}
+.quiz-result .pct.pass{color:var(--green)}
+.quiz-result .pct.fail{color:var(--red)}
+.quiz-result .verdict{font-size:15px;font-weight:600;margin:6px 0 14px}
+
+/* timeline */
+.eta-hero{background:linear-gradient(135deg,var(--bg2),var(--bg3));border:1px solid rgba(201,168,76,.3);border-radius:var(--r);padding:18px;text-align:center;margin-bottom:12px}
+.eta-date{font-size:26px;font-weight:800;color:var(--gold);letter-spacing:-.5px}
+.eta-sub{font-size:12px;color:var(--text2);margin-top:4px}
+.tl-item{display:flex;gap:14px;position:relative;padding-bottom:18px}
+.tl-rail{width:14px;display:flex;flex-direction:column;align-items:center;flex-shrink:0}
+.tl-dot{width:12px;height:12px;border-radius:50%;background:var(--bg3);border:2px solid var(--border2);z-index:1}
+.tl-item.done .tl-dot{background:var(--gold);border-color:var(--gold)}
+.tl-item.next .tl-dot{border-color:var(--gold);box-shadow:0 0 8px var(--gold-glow)}
+.tl-line{width:2px;flex:1;background:var(--border)}
+.tl-content{flex:1;padding-bottom:2px}
+.tl-title{font-size:13px;font-weight:600}
+.tl-title .ar{color:var(--gold)}
+.tl-date{font-size:11px;font-family:var(--mono);color:var(--text3);margin-top:1px}
+.pace-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--text2)}
+
+/* stats */
+.cat-row{display:flex;align-items:center;gap:10px;margin:7px 0}
+.cat-name{width:170px;font-size:12px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cat-name .ar{color:var(--text2)}
+.cat-bar{flex:1;height:8px;background:var(--bg3);border-radius:4px;overflow:hidden}
+.cat-fill{height:100%;border-radius:4px}
+.cat-val{width:38px;text-align:right;font-size:11px;font-family:var(--mono);color:var(--text2);flex-shrink:0}
+.week-bars{display:flex;align-items:flex-end;gap:6px;height:90px;padding:10px 0 2px}
+.wbar{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end}
+.wbar .bar{width:100%;background:linear-gradient(180deg,var(--gold-hi),var(--gold));border-radius:4px 4px 0 0;min-height:2px}
+.wbar .lbl{font-size:9px;font-family:var(--mono);color:var(--text3)}
+
+/* resources */
+.res-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:13px 15px;margin-bottom:8px}
+.res-name{font-size:14px;font-weight:600}
+.res-name a{color:var(--blue);text-decoration:none}
+.res-name a:hover{text-decoration:underline}
+.res-desc{font-size:12.5px;color:var(--text2);margin-top:3px}
+.res-lic{display:inline-block;font-size:10px;font-family:var(--mono);color:var(--green);background:var(--green-dim);border:1px solid rgba(63,185,80,.3);padding:1px 7px;border-radius:9px;margin-top:6px}
+
+/* toast */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--bg3);border:1px solid var(--gold);color:var(--text);font-size:13px;padding:10px 18px;border-radius:20px;z-index:900;transition:transform .25s ease;box-shadow:0 6px 24px rgba(0,0,0,.5);max-width:90vw;text-align:center}
+.toast.show{transform:translateX(-50%) translateY(0)}
+
+/* onboarding */
+.ob-overlay{position:fixed;inset:0;background:var(--bg);z-index:800;display:none;align-items:center;justify-content:center;padding:20px;overflow-y:auto}
+.ob-overlay.open{display:flex}
+.ob-box{width:100%;max-width:420px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:28px 24px;text-align:center}
+.ob-char{font-size:52px;color:var(--gold);font-family:var(--arfont);filter:drop-shadow(0 0 16px var(--gold-glow))}
+.ob-title{font-size:20px;font-weight:700;margin:8px 0 4px}
+.ob-sub{font-size:13px;color:var(--text2);margin-bottom:18px}
+@media(max-width:480px){.cat-name{width:120px}}
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-char">ميزان</div>
+      <div>
+        <div class="brand-name">Mizan Arabic</div>
+        <div class="brand-sub">Ṣarf &amp; Naḥw</div>
+      </div>
+    </div>
+    <div class="streak-chip" id="streakChip">🔥 0</div>
+  </div>
+
+  <div class="nav-tabs" id="navTabs">
+    <button class="nav-tab active" data-view="home">Home</button>
+    <button class="nav-tab" data-view="learn">Learn</button>
+    <button class="nav-tab" data-view="review">Review<span class="badge" id="dueBadge" style="display:none">0</span></button>
+    <button class="nav-tab" data-view="timeline">Timeline</button>
+    <button class="nav-tab" data-view="stats">Stats</button>
+    <button class="nav-tab" data-view="resources">Resources</button>
+  </div>
+
+  <div class="view active" id="view-home"></div>
+  <div class="view" id="view-learn"></div>
+  <div class="view" id="view-review"></div>
+  <div class="view" id="view-timeline"></div>
+  <div class="view" id="view-stats"></div>
+  <div class="view" id="view-resources"></div>
+</div>
+
+<!-- lesson reader overlay -->
+<div class="overlay" id="lessonOverlay">
+  <div class="overlay-inner">
+    <div class="overlay-top">
+      <div class="overlay-title" id="lessonOverlayTitle"></div>
+      <button class="close-x" onclick="closeLesson()">✕</button>
+    </div>
+    <div id="lessonOverlayBody"></div>
+  </div>
+</div>
+
+<!-- quiz overlay -->
+<div class="overlay" id="quizOverlay">
+  <div class="overlay-inner">
+    <div class="overlay-top">
+      <div class="overlay-title" id="quizOverlayTitle"></div>
+      <button class="close-x" onclick="abortQuiz()">✕</button>
+    </div>
+    <div id="quizOverlayBody"></div>
+  </div>
+</div>
+
+<!-- onboarding -->
+<div class="ob-overlay" id="obOverlay">
+  <div class="ob-box">
+    <div class="ob-char">ميزان</div>
+    <div class="ob-title">Mizan Arabic</div>
+    <div class="ob-sub">Master Arabic morphology (صرف) and syntax (نحو) through classical texts — the Qurʾan, the Muʿallaqāt, and the great grammarians. Prove what you already know to skip ahead; everything else is unlocked by demonstrated mastery, never by time.</div>
+    <div class="btn-row" style="justify-content:center">
+      <button class="btn" onclick="startPlacementFlow()">Take placement test</button>
+      <button class="btn ghost" onclick="skipOnboarding()">Start from the beginning</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="data-core.js"></script>
+<script src="data-nahw-a.js"></script>
+<script src="data-nahw-b.js"></script>
+<script src="data-sarf.js"></script>
+<script src="app.js"></script>
+<script>
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>
