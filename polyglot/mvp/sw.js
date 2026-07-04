@@ -1,4 +1,4 @@
-const CACHE = 'polyglot-v1';
+const CACHE = 'polyglot-v2';
 const SHELL = [
   './', './index.html', './manifest.json', './css/app.css',
   './js/srs.js', './js/speech.js', './js/tutor.js', './js/app.js',

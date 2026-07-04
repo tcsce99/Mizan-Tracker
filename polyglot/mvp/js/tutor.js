@@ -85,16 +85,18 @@
     this.courseId = courseId;
     this.apiKey = apiKey;
     this.meta = courseMeta(courseId);
+    this.course = window.LISAN_COURSES[courseId];
     this.history = [];
   }
 
   ClaudeTutor.prototype.systemPrompt = function () {
     const done = Object.keys(window.SRS.course(this.courseId).units).length;
+    const totalUnits = (this.course && this.course.units ? this.course.units.length : 6);
     const weak = window.SRS.weakCats(this.courseId, 3);
     const catList = Object.keys(window.LISAN_CATS).join(", ");
     return [
-      "You are Polyglot, a friendly " + this.meta.name + " tutor for an English-speaking beginner.",
-      "Learner level: has completed " + done + " of 6 beginner units.",
+      "You are Polyglot, a friendly " + this.meta.name + " tutor for an English speaker learning the language.",
+      "Learner level: has completed " + done + " of " + totalUnits + " units (course runs A0 up to B2). Pitch your language just above their level.",
       weak.length ? "Known weak areas: " + weak.join(", ") + " — gently drill these." : "",
       "Rules:",
       "- Keep replies short (2-5 lines). Write " + this.meta.name + " with an English gloss in parentheses." + (this.meta.rtl || ["cmn","yue","ja","ko","ru","ur","arz"].indexOf(this.courseId) >= 0 ? " Include romanization for every " + this.meta.name + " phrase." : ""),
