@@ -48,7 +48,20 @@ sentences.
   your *actual* measured pace over the trailing 21 days. Study more days per week
   and the finish date pulls in; slow down and it honestly drifts out. Per-unit
   milestone dates recompute on every visit.
-- **No pronunciation help** (by request) — this is a reading/grammar app.
+- **Mandatory weekly review.** 15 minutes of review must be logged every 7 days
+  (short review sessions count toward it). Once a week passes without it, opening
+  a new lesson or unit challenge offers the review instead; you can skip **3
+  times**, after which new lessons are **locked** until the 15 minutes are done.
+  The review runs on a clock, not a question count, and leaving early keeps the
+  minutes you logged.
+- **AI tutor that listens and corrects.** The **Tutor** tab takes speech (Web
+  Speech API, Arabic) or typing, and returns the wrong form, the right form fully
+  vowelled, and the rule — then the next thing to practise. Each mistake is filed
+  under its curriculum category and lowers that category's mastery. It runs on the
+  Claude API with **your own Anthropic API key** (billed to your account, stored
+  only on the device, never in backups), or through a proxy URL you host. Speech
+  recognition needs Chrome/Edge/Android; elsewhere you type. The tutor corrects
+  grammar, not pronunciation.
 - **Offline-first** service worker; **local-only** data (localStorage) with
   JSON **export/import** backup.
 
@@ -63,7 +76,7 @@ python3 -m http.server 8000
 # open http://localhost:8000
 ```
 
-Or use any static host. The whole app is `arabic/index.html` + `app.js` +
+Or use any static host. The whole app is `arabic/index.html` + `app.js` + `tutor.js` +
 `data-*.js` + `sw.js` + `manifest.json` + icons.
 
 ## Installing as a PWA (desktop & mobile)
@@ -103,7 +116,8 @@ worker — the PWABuilder checklist passes.
 ## Data & privacy
 
 All progress is stored locally in your browser (`localStorage`, key
-`mizanArabicV1`). Nothing is sent anywhere. Use **Stats → Export backup** to move
+`mizanArabicV1`). Nothing leaves the device except what you say or type to the
+AI tutor, which goes to the Claude API. Use **Stats → Export backup** to move
 progress between devices.
 
 ## Sources & licensing

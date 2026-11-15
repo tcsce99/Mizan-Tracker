@@ -205,6 +205,28 @@ table.conj td.ar{font-size:16px}
 .ob-char{font-size:52px;color:var(--gold);font-family:var(--arfont);filter:drop-shadow(0 0 16px var(--gold-glow))}
 .ob-title{font-size:20px;font-weight:700;margin:8px 0 4px}
 .ob-sub{font-size:13px;color:var(--text2);margin-bottom:18px}
+/* tutor */
+.chips{display:flex;gap:6px;flex-wrap:wrap;padding-bottom:10px}
+.chip{font-size:12px;padding:6px 12px;border-radius:20px;background:var(--bg2);border:1px solid var(--border2);color:var(--text2)}
+.chip:hover{border-color:var(--gold);color:var(--gold)}
+.fld{display:block;font-size:11px;color:var(--text2);margin-bottom:10px}
+.fld input,.fld select{display:block;width:100%;margin-top:4px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r-sm);padding:9px 11px;font-size:13px;color:var(--text);font-family:inherit}
+.bubble{border-radius:var(--r);padding:11px 14px;margin:8px 0;font-size:14px;max-width:92%;overflow-wrap:anywhere}
+.bubble.me{background:var(--gold-dim);border:1px solid rgba(201,168,76,.3);margin-left:auto;width:fit-content}
+.bubble.tutor{background:var(--bg2);border:1px solid var(--border)}
+.bubble.err{background:var(--red-dim);border:1px solid rgba(248,81,73,.3);color:var(--red);font-size:13px}
+.bubble .fix{border-left:3px solid var(--green);padding:2px 12px;margin-top:10px}
+.bubble .err-item{border-top:1px solid var(--border);margin-top:10px;padding-top:9px}
+.bubble .wrong{color:var(--red);font-size:1.15rem}
+.bubble .right{color:var(--green);font-size:1.15rem}
+.bubble .next{margin-top:10px;padding-top:9px;border-top:1px solid var(--border);color:var(--gold)}
+.tutor-bar{position:sticky;bottom:0;background:var(--bg);padding:8px 0 12px;border-top:1px solid var(--border);margin-top:10px}
+.tutor-row{display:flex;gap:8px;align-items:stretch}
+.tutor-row textarea{flex:1;min-width:0;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r-sm);padding:9px 11px;font-size:15px;color:var(--text);font-family:inherit;resize:none}
+.tutor-row textarea:focus{outline:none;border-color:var(--gold)}
+.mic{width:46px;border-radius:var(--r-sm);background:var(--bg2);border:1px solid var(--border2);font-size:18px;flex-shrink:0}
+.mic.live{background:var(--red-dim);border-color:var(--red);color:var(--red);animation:pulse 1.2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
 @media(max-width:480px){.cat-name{width:120px}}
 </style>
 </head>
@@ -225,6 +247,7 @@ table.conj td.ar{font-size:16px}
     <button class="nav-tab active" data-view="home">Home</button>
     <button class="nav-tab" data-view="learn">Learn</button>
     <button class="nav-tab" data-view="review">Review<span class="badge" id="dueBadge" style="display:none">0</span></button>
+    <button class="nav-tab" data-view="tutor">Tutor</button>
     <button class="nav-tab" data-view="timeline">Timeline</button>
     <button class="nav-tab" data-view="stats">Stats</button>
     <button class="nav-tab" data-view="resources">Resources</button>
@@ -233,6 +256,7 @@ table.conj td.ar{font-size:16px}
   <div class="view active" id="view-home"></div>
   <div class="view" id="view-learn"></div>
   <div class="view" id="view-review"></div>
+  <div class="view" id="view-tutor"></div>
   <div class="view" id="view-timeline"></div>
   <div class="view" id="view-stats"></div>
   <div class="view" id="view-resources"></div>
@@ -273,12 +297,16 @@ table.conj td.ar{font-size:16px}
   </div>
 </div>
 
+<!-- weekly review gate -->
+<div class="ob-overlay" id="gateOverlay"><div class="ob-box" id="gateBox"></div></div>
+
 <div class="toast" id="toast"></div>
 
 <script src="data-core.js"></script>
 <script src="data-nahw-a.js"></script>
 <script src="data-nahw-b.js"></script>
 <script src="data-sarf.js"></script>
+<script src="tutor.js"></script>
 <script src="app.js"></script>
 <script>
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});

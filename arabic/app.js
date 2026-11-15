@@ -89,6 +89,48 @@ function streak() {
   return n;
 }
 
+/* ── weekly review rule ──
+   15 minutes of review must be logged every 7 days. When a week passes
+   without it, opening a new lesson offers the review; it can be skipped
+   3 times, after which new lessons stay locked until the 15 minutes are done. */
+const WEEK = 7 * DAY, REVIEW_SECS = 15 * 60, MAX_SKIPS = 3, Q_CAP_SECS = 60;
+function wk() { if (!S.weekly) S.weekly = { last: null, secs: 0, skips: 0, pass: null }; return S.weekly; }
+function anyDone() { return allLessons().some(l => lessonDone(l.id)); }
+function cycleStart() {
+  const w = wk(); if (w.last) return w.last;
+  const ats = Object.values(S.lessons).map(x => x.at).filter(Boolean);
+  return ats.length ? Math.min(...ats) : null;
+}
+function weeklyDue() { const c = cycleStart(); return anyDone() && c !== null && Date.now() - c >= WEEK; }
+function weeklyLocked() { return weeklyDue() && wk().skips >= MAX_SKIPS; }
+function reviewSecsLeft() { return Math.max(0, REVIEW_SECS - wk().secs); }
+function addReviewTime(sec) { // returns true when the weekly 15 minutes are complete
+  const w = wk(); w.secs += sec;
+  if (w.secs < REVIEW_SECS) { save(); return false; }
+  w.last = Date.now(); w.secs = 0; w.skips = 0; w.pass = null; save();
+  return true;
+}
+function mmss(sec) { sec = Math.max(0, Math.ceil(sec)); return Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0'); }
+function gateOk(passKey) { return !weeklyDue() || wk().pass === passKey; }
+let gateProceed = null;
+function showGate(passKey, proceed) {
+  const w = wk(), left = MAX_SKIPS - w.skips, locked = left <= 0;
+  gateProceed = () => { w.skips++; w.pass = passKey; save(); closeGate(); proceed(); };
+  $('#gateBox').innerHTML = `
+    <div style="font-size:40px">${locked ? '🔒' : '⏳'}</div>
+    <div class="ob-title">${locked ? 'Review required' : 'Weekly review is due'}</div>
+    <div class="ob-sub">${locked
+      ? `A week has passed and all ${MAX_SKIPS} skips are used. New lessons unlock after <b>${mmss(reviewSecsLeft())}</b> more minutes of review.`
+      : `It has been over a week since your last full review. Do ${mmss(reviewSecsLeft())} of review now, or skip — <b>${left} skip${left > 1 ? 's' : ''} left</b> before lessons lock.`}</div>
+    <div class="btn-row" style="justify-content:center">
+      <button class="btn" onclick="closeGate();closeLesson();startTimedReview()">Start review (${mmss(reviewSecsLeft())})</button>
+      ${locked ? '' : `<button class="btn ghost" onclick="gateProceed()">Skip this time</button>`}
+      <button class="btn ghost" onclick="closeGate()">Cancel</button>
+    </div>`;
+  $('#gateOverlay').classList.add('open');
+}
+function closeGate() { $('#gateOverlay').classList.remove('open'); }
+
 /* ── velocity & adaptive timeline ──
    Lessons/day measured over the trailing 21 days (or since first
    activity if sooner). The projection re-computes on every render,
@@ -151,6 +193,7 @@ function render() {
   if (v === 'home') renderHome();
   if (v === 'learn') renderLearn();
   if (v === 'review') renderReview();
+  if (v === 'tutor') renderTutor();
   if (v === 'timeline') renderTimeline();
   if (v === 'stats') renderStats();
   if (v === 'resources') renderResources();
@@ -204,11 +247,28 @@ function renderHome() {
       <div style="font-size:20px;font-weight:800;color:var(--gold)">${rem ? fmtDate(Date.now() + eta.days * DAY) : 'Complete 🎉'}</div>
       <div class="tiny">${rem ? (eta.measured ? `at your measured pace of ${(eta.rate * 7).toFixed(1)} lessons/week` : 'assumed 3 lessons/week — updates as you study') : ''}</div>
     </div>
+    ${weeklyCard()}
     <div class="sec-head"><div class="sec-title">Today's plan</div></div>
     ${plan}
     ${trackSummaryCards()}
     ${S.onboarded ? '' : `<div class="card"><b>Know some of this already?</b><div class="muted" style="margin:4px 0 10px">Take the placement test to skip everything you can prove.</div><button class="btn small" onclick="startPlacementFlow()">Placement test</button></div>`}
   `;
+}
+function weeklyCard() {
+  if (!anyDone()) return '';
+  const w = wk(), due = weeklyDue(), locked = weeklyLocked();
+  const daysLeft = Math.max(0, Math.ceil((cycleStart() + WEEK - Date.now()) / DAY));
+  const status = locked ? 'New lessons are locked until the review is done'
+    : due ? `Due now — ${MAX_SKIPS - w.skips} skip${MAX_SKIPS - w.skips === 1 ? '' : 's'} left before lessons lock`
+    : `Due in ${daysLeft} day${daysLeft === 1 ? '' : 's'}`;
+  return `<div class="card" style="border-color:${due ? 'rgba(248,81,73,.45)' : 'var(--border)'}">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+      <div style="min-width:0"><b style="font-size:14px">${locked ? '🔒' : due ? '⏳' : '🗓'} Weekly review</b>
+        <div class="tiny" style="color:${due ? 'var(--red)' : 'var(--text3)'}">${status} · ${mmss(w.secs)} of 15:00 logged</div></div>
+      <button class="btn small ${due ? '' : 'ghost'}" onclick="startTimedReview()">Review</button>
+    </div>
+    <div class="progress-track" style="margin-top:10px"><div class="progress-fill green" style="width:${Math.min(100, 100 * w.secs / REVIEW_SECS)}%"></div></div>
+  </div>`;
 }
 function planRow(icon, title, sub, action) {
   return `<div class="card" style="display:flex;gap:12px;align-items:center;cursor:pointer" onclick="${action}">
@@ -279,9 +339,10 @@ function toggleUnit(id) { openUnits.has(id) ? openUnits.delete(id) : openUnits.a
 
 /* ── lesson reader ── */
 let currentLesson = null;
-function openLesson(id) {
+function openLesson(id, gated) {
   const l = findLesson(id); if (!l) return;
   if (!unitUnlocked(l.unit)) { toast('Unit locked — pass the previous unit or its challenge first'); return; }
+  if (!lessonDone(id) && !gated && !gateOk(id)) return showGate(id, () => openLesson(id, true));
   currentLesson = l;
   $('#lessonOverlayTitle').innerHTML = `${esc(l.track.en)} · ${esc(l.unit.en)}`;
   $('#lessonOverlayBody').innerHTML = `
@@ -305,33 +366,59 @@ function openLesson(id) {
 function closeLesson() { $('#lessonOverlay').classList.remove('open'); render(); }
 
 /* ═════════ QUIZ ENGINE ═════════ */
-let Q = null; // {title, items:[{q,ar,opts,a,exp,lessonId}], i, correct, perLesson:{}, onDone}
-function startQuiz(title, items, onDone) {
-  Q = { title, items, i: 0, correct: 0, perLesson: {}, onDone };
+let Q = null; // {title, items:[{q,ar,opts,a,exp,lessonId}], i, correct, perLesson:{}, onDone, review, timed, refill}
+let quizTick = null;
+function startQuiz(title, items, onDone, opts) {
+  Q = { title, items, i: 0, correct: 0, perLesson: {}, onDone, ...(opts || {}) };
   window.Q = Q;
+  clearInterval(quizTick);
+  if (Q.timed) quizTick = setInterval(tickTimer, 1000);
   $('#quizOverlayTitle').textContent = title;
   $('#quizOverlay').classList.add('open');
   renderQuestion();
 }
-function abortQuiz() { Q = null; $('#quizOverlay').classList.remove('open'); }
+function abortQuiz() {
+  // leaving a timed review early keeps the minutes and schedules what was answered
+  if (Q && Q.timed && !Q.finished && Q.items.some(x => x._r !== undefined)) { Q.finished = true; Q.onDone(0, Q); save(); }
+  clearInterval(quizTick);
+  Q = null; $('#quizOverlay').classList.remove('open'); render();
+}
+function tickTimer() {
+  const el = $('#quizTimer'); if (!el || !Q) return;
+  const cur = Q.answered ? 0 : Math.min(Q_CAP_SECS, (Date.now() - Q.t0) / 1000);
+  const left = Q.timedDone ? 0 : Math.max(0, reviewSecsLeft() - cur);
+  el.textContent = mmss(left) + ' of review left';
+  const bar = $('#quizTimeBar'); if (bar) bar.style.width = Math.min(100, 100 * (1 - left / REVIEW_SECS)) + '%';
+}
+function nextQ() { Q.i++; if (Q.timed && Q.timedDone) return quizDone(); renderQuestion(); }
 function renderQuestion() {
   const b = $('#quizOverlayBody');
+  if (Q.i >= Q.items.length && Q.refill) Q.items.push(...Q.refill());
   if (Q.i >= Q.items.length) return quizDone();
   const it = Q.items[Q.i];
+  Q.t0 = Date.now(); Q.answered = false;
   b.innerHTML = `
-    <div class="quiz-progress">${Q.items.map((x, j) => `<div class="qdot ${j < Q.i ? (x._r ? 'right' : 'wrong') : j === Q.i ? 'cur' : ''}"></div>`).join('')}</div>
+    ${Q.timed
+      ? `<div style="padding:16px 0 4px"><div class="tiny" id="quizTimer" style="font-family:var(--mono);color:var(--gold);padding-bottom:5px"></div><div class="progress-track"><div class="progress-fill" id="quizTimeBar" style="width:0%"></div></div></div>`
+      : `<div class="quiz-progress">${Q.items.map((x, j) => `<div class="qdot ${j < Q.i ? (x._r ? 'right' : 'wrong') : j === Q.i ? 'cur' : ''}"></div>`).join('')}</div>`}
     <div class="quiz-q">${esc(it.q)}</div>
     ${it.ar ? `<div class="quiz-ar">${it.ar}</div>` : ''}
     <div class="quiz-opts">${it.opts.map((o, j) => `<button class="quiz-opt" data-j="${j}" onclick="answer(${j})"><span class="ar">${o}</span></button>`).join('')}</div>
     <div class="quiz-exp" id="quizExp"></div>
     <div class="quiz-next" id="quizNext"></div>`;
+  if (Q.timed) tickTimer();
   window.scrollTo(0, 0);
 }
 function answer(j) {
   const it = Q.items[Q.i];
   const right = j === it.a;
   it._r = right;
+  Q.answered = true;
   if (right) Q.correct++;
+  if (Q.review) {
+    const done = addReviewTime(Math.min(Q_CAP_SECS, (Date.now() - Q.t0) / 1000));
+    if (done) { Q.timedDone = true; if (!Q.timed) toast('Weekly review complete ✓'); }
+  }
   if (it.lessonId) {
     const pl = Q.perLesson[it.lessonId] || { n: 0, c: 0 };
     pl.n++; if (right) pl.c++;
@@ -346,18 +433,22 @@ function answer(j) {
   const ex = $('#quizExp');
   ex.innerHTML = (right ? '✅ ' : '❌ ') + (it.exp || '');
   ex.classList.add('show');
-  $('#quizNext').innerHTML = `<button class="btn" onclick="Q.i++;renderQuestion()">${Q.i + 1 >= Q.items.length ? 'See result' : 'Next →'}</button>`;
+  $('#quizNext').innerHTML = `<button class="btn" onclick="nextQ()">${(Q.timed ? Q.timedDone : Q.i + 1 >= Q.items.length) ? 'See result' : 'Next →'}</button>`;
+  if (Q.timed) tickTimer();
   logActivity(a => { a.q++; if (right) a.c++; });
 }
 function quizDone() {
-  const frac = Q.items.length ? Q.correct / Q.items.length : 0;
+  clearInterval(quizTick);
+  const n = Q.items.filter(x => x._r !== undefined).length;
+  const frac = n ? Q.correct / n : 0;
+  Q.finished = true;
   const res = Q.onDone(frac, Q) || {};
   const pct = Math.round(frac * 100);
   $('#quizOverlayBody').innerHTML = `
     <div class="quiz-result">
       <div class="pct ${res.pass ? 'pass' : 'fail'}">${pct}%</div>
       <div class="verdict">${esc(res.msg || '')}</div>
-      <div class="muted">${Q.correct}/${Q.items.length} correct</div>
+      <div class="muted">${Q.correct}/${n} correct</div>
       <div class="btn-row" style="justify-content:center;padding-top:18px">
         ${res.retry ? `<button class="btn ghost" onclick="${res.retry}">Try again</button>` : ''}
         <button class="btn" onclick="abortQuiz();closeLesson()">Continue</button>
@@ -396,8 +487,9 @@ function startLessonQuiz(id, testOut) {
 }
 
 /* ── unit challenge (skip a whole unit) ── */
-function startChallenge(unitId) {
+function startChallenge(unitId, gated) {
   const u = findUnit(unitId); if (!u) return;
+  if (!unitComplete(u) && !gated && !gateOk('unit:' + unitId)) return showGate('unit:' + unitId, () => startChallenge(unitId, true));
   let pool = shuffle(u.lessons.flatMap(l => shuffle(qItems(l)).slice(0, 3)));
   pool = pool.slice(0, Math.min(10, pool.length));
   startQuiz('Challenge: ' + u.en, pool, (frac, q) => {
@@ -470,7 +562,7 @@ function startWeakPractice(unitId) {
     logActivity(a => a.r++);
     save();
     return { pass: frac >= 0.75, msg: frac >= 0.75 ? 'Category strengthened 💪' : 'Keep at it — mastery updated' };
-  });
+  }, { review: true });
 }
 function startReviewSession() {
   const due = dueItems();
@@ -487,7 +579,32 @@ function startReviewSession() {
     logActivity(a => a.r++);
     save();
     return { pass: frac >= 0.6, msg: frac >= 0.6 ? 'Reviews scheduled forward ✓' : 'Lapsed items will return sooner' };
-  });
+  }, { review: true });
+}
+/* ── the 15-minute weekly review: runs on the clock, not a question count.
+   Due items come first, then the weakest categories, then everything else. */
+function reviewPool() {
+  const due = new Set(dueItems());
+  const done = allLessons().filter(l => lessonDone(l.id));
+  const rank = l => (due.has(l.id) ? 0 : 1) + mastery(l.unit.id);
+  return done.sort((a, b) => rank(a) - rank(b)).flatMap(l => shuffle(qItems(l)));
+}
+function startTimedReview() {
+  if (!anyDone()) return toast('Complete a lesson first — then there is something to review');
+  const fresh = () => reviewPool().map(q => ({ ...q }));
+  startQuiz('Weekly review', fresh(), (frac, q) => {
+    Object.keys(q.perLesson).forEach(id => {
+      const p = q.perLesson[id];
+      srsReview(id, p.c / p.n);
+      const l = findLesson(id);
+      if (l) updateMastery(l.unit.id, p.c / p.n, 0.2);
+    });
+    logActivity(a => a.r++);
+    save();
+    return q.timedDone
+      ? { pass: true, msg: 'Weekly review complete — lessons unlocked for another week ✓' }
+      : { pass: false, msg: `Time logged. ${mmss(reviewSecsLeft())} of review still to go this week.` };
+  }, { review: true, timed: true, refill: fresh });
 }
 function renderReview() {
   const el = $('#view-review');
@@ -495,6 +612,7 @@ function renderReview() {
   const upcoming = Object.keys(S.srs).filter(id => findLesson(id)).map(id => ({ id, ...S.srs[id] })).sort((a, b) => a.due - b.due);
   const next7 = [0, 1, 2, 3, 4, 5, 6].map(i => upcoming.filter(u => ymd(u.due) === ymd(Date.now() + i * DAY) && u.due > Date.now()).length);
   el.innerHTML = `
+    ${weeklyCard()}
     <div class="sec-head"><div class="sec-title">Spaced repetition — never forget</div></div>
     <div class="card" style="text-align:center">
       <div style="font-size:40px;font-weight:800;color:${due.length ? 'var(--red)' : 'var(--green)'}">${due.length}</div>
