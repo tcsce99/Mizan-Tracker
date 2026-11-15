@@ -644,17 +644,20 @@ function speechAvailable(){ return !!(window.FushaNative || window.SpeechRecogni
 function listen(){
   return new Promise((res,rej)=>{
     if(window.FushaNative){
-      window.__fushaSpeech=(text,err)=>{ if(err) rej(new Error(err)); else res(text); };
+      const guard=setTimeout(()=>rej(new Error('no-speech')),30000);
+      window.__fushaSpeech=(text,err)=>{ clearTimeout(guard); if(err) rej(new Error(err)); else res(text); };
       window.FushaNative.startListening('ar-SA'); return;
     }
     const R=window.SpeechRecognition||window.webkitSpeechRecognition;
     if(!R) return rej(new Error('unsupported'));
     const r=new R(); r.lang='ar-SA'; r.interimResults=false; r.maxAlternatives=1;
     let settled=false;
-    r.onresult=e=>{ settled=true; res(e.results[0][0].transcript); };
-    r.onerror=e=>{ settled=true; rej(new Error(e.error||'error')); };
-    r.onend=()=>{ if(!settled) rej(new Error('no-speech')); };
-    r.start();
+    const fail=c=>{ if(settled) return; settled=true; clearTimeout(guard); rej(new Error(c)); };
+    const guard=setTimeout(()=>{ try{ r.abort(); }catch(e){} fail('no-speech'); },20000);
+    r.onresult=e=>{ if(settled) return; settled=true; clearTimeout(guard); res(e.results[0][0].transcript); };
+    r.onerror=e=>fail(e.error||'error');
+    r.onend=()=>fail('no-speech');
+    try{ r.start(); }catch(e){ fail('error'); }
   });
 }
 function speechErr(e){
