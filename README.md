@@ -62,8 +62,8 @@ sentences.
   only on the device, never in backups), or through a proxy URL you host. Speech
   recognition needs Chrome/Edge/Android; elsewhere you type. The tutor corrects
   grammar, not pronunciation.
-- **Offline-first** service worker; **local-only** data (localStorage) with
-  JSON **export/import** backup.
+- **Offline-first** service worker, with **automatic sync** across devices once
+  you sign in (see below).
 
 ## Running it locally
 
@@ -113,12 +113,21 @@ worker — the PWABuilder checklist passes.
 > file at `/.well-known/assetlinks.json` with your signing-key fingerprint
 > (Bubblewrap prints it during `build`).
 
-## Data & privacy
+## Data, sync & privacy
 
-All progress is stored locally in your browser (`localStorage`, key
-`mizanArabicV1`). Nothing leaves the device except what you say or type to the
-AI tutor, which goes to the Claude API. Use **Stats → Export backup** to move
-progress between devices.
+Progress is always stored on the device (`localStorage`, key `mizanArabicV1`), so
+the app works offline. Sign in once per device (**Stats → Sync**, email/password
+or Google) and progress syncs automatically through Firebase, using the same
+project and accounts as the Mizan daily tracker. It is stored in one Firestore
+document, `users/{uid}/meta/arabic`. Changes from two devices are merged, never
+overwritten; a reset applies to every device. The tutor's API key is not synced.
+
+For sync to work on a new host, add that host's domain under Firebase
+Authentication → Settings → Authorized domains, and make sure the Firestore rules
+let a signed-in user read and write `users/{uid}/meta/*`.
+
+What you say or type to the AI tutor goes to the Claude API. Export/import
+(Stats → Data) remains as a manual backup.
 
 ## Sources & licensing
 

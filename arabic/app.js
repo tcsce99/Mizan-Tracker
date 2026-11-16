@@ -18,7 +18,57 @@ function load() {
   try { const s = JSON.parse(localStorage.getItem(KEY)); if (s) return s; } catch (e) {}
   return { onboarded: false, lessons: {}, units: {}, srs: {}, mastery: {}, activity: {}, created: Date.now() };
 }
-function save() { localStorage.setItem(KEY, JSON.stringify(S)); }
+function save() { localStorage.setItem(KEY, JSON.stringify(S)); if (window.syncPush) window.syncPush(); }
+
+/* ── merging two devices' progress ──
+   Sync never overwrites: progress made on either device survives. A reset
+   bumps `epoch`, and the newer epoch replaces the older one outright. */
+function mergeState(a, b) {
+  if (!b) return a; if (!a) return b;
+  if ((a.epoch || 0) !== (b.epoch || 0)) return (a.epoch || 0) > (b.epoch || 0) ? a : b;
+  const keys = (x, y) => [...new Set([...Object.keys(x || {}), ...Object.keys(y || {})])];
+  const out = { epoch: a.epoch || 0, onboarded: !!(a.onboarded || b.onboarded), created: Math.min(a.created || Infinity, b.created || Infinity), lessons: {}, units: {}, srs: {}, mastery: {}, activity: {} };
+  if (!isFinite(out.created)) out.created = Date.now();
+  keys(a.lessons, b.lessons).forEach(id => {
+    const x = (a.lessons || {})[id], y = (b.lessons || {})[id];
+    if (!x || !y) { out.lessons[id] = x || y; return; }
+    const m = { ...y, ...x, attempts: Math.max(x.attempts || 0, y.attempts || 0), best: Math.max(x.best || 0, y.best || 0) };
+    const st = [x.status, y.status]; m.status = st.includes('done') ? 'done' : st.includes('tested') ? 'tested' : undefined;
+    const ats = [x.at, y.at].filter(Boolean); if (ats.length) m.at = Math.min(...ats);
+    if (!m.status) delete m.status;
+    out.lessons[id] = m;
+  });
+  keys(a.units, b.units).forEach(id => { out.units[id] = (a.units || {})[id] || (b.units || {})[id]; });
+  keys(a.srs, b.srs).forEach(id => {
+    const x = (a.srs || {})[id], y = (b.srs || {})[id];
+    out.srs[id] = !x ? y : !y ? x : ((x.last || 0) >= (y.last || 0) ? x : y);
+  });
+  keys(a.mastery, b.mastery).forEach(id => {
+    const x = (a.mastery || {})[id], y = (b.mastery || {})[id];
+    out.mastery[id] = !x ? y : !y ? x : ((x.n || 0) >= (y.n || 0) ? x : y);
+  });
+  keys(a.activity, b.activity).forEach(d => {
+    const x = (a.activity || {})[d] || {}, y = (b.activity || {})[d] || {};
+    out.activity[d] = { l: Math.max(x.l || 0, y.l || 0), q: Math.max(x.q || 0, y.q || 0), c: Math.max(x.c || 0, y.c || 0), r: Math.max(x.r || 0, y.r || 0) };
+  });
+  const wa = a.weekly, wb = b.weekly;
+  if (wa || wb) {
+    if (!wa || !wb) out.weekly = wa || wb;
+    else if ((wa.last || 0) !== (wb.last || 0)) out.weekly = (wa.last || 0) > (wb.last || 0) ? wa : wb;
+    else out.weekly = { last: wa.last, secs: Math.max(wa.secs || 0, wb.secs || 0), skips: Math.max(wa.skips || 0, wb.skips || 0), pass: wa.pass || wb.pass || null };
+  }
+  return out;
+}
+/* called by sync.js when the cloud copy arrives; returns the merged state to upload */
+function applyRemote(remote) {
+  S = mergeState(S, remote);
+  localStorage.setItem(KEY, JSON.stringify(S));
+  const busy = document.querySelector('.overlay.open') || activeView() === 'tutor';
+  if (!busy) render();
+  if (S.onboarded) $('#obOverlay').classList.remove('open');
+  return S;
+}
+function localState() { return S; }
 function ymd(t) { const d = t ? new Date(t) : new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
 function today() { return ymd(); }
 
@@ -251,6 +301,7 @@ function renderHome() {
     <div class="sec-head"><div class="sec-title">Today's plan</div></div>
     ${plan}
     ${trackSummaryCards()}
+    ${window.syncUser ? '' : `<div id="syncCard">${syncCardHtml()}</div>`}
     ${S.onboarded ? '' : `<div class="card"><b>Know some of this already?</b><div class="muted" style="margin:4px 0 10px">Take the placement test to skip everything you can prove.</div><button class="btn small" onclick="startPlacementFlow()">Placement test</button></div>`}
   `;
 }
@@ -716,12 +767,47 @@ function renderStats() {
       }).join('')}</div>`).join('')}
     <div class="sec-head"><div class="sec-title">Weekly activity (questions answered)</div></div>
     <div class="card"><div class="week-bars">${weeks.map((n, i) => `<div class="wbar"><div class="bar" style="height:${Math.max(2, n / maxW * 70)}px"></div><div class="lbl">${i === 7 ? 'now' : (7 - i) + 'w'}</div></div>`).join('')}</div></div>
+    <div class="sec-head"><div class="sec-title">Sync</div></div>
+    <div id="syncCard">${syncCardHtml()}</div>
     <div class="sec-head"><div class="sec-title">Data</div></div>
     <div class="card"><div class="btn-row">
       <button class="btn ghost small" onclick="exportData()">Export backup</button>
       <button class="btn ghost small" onclick="importData()">Import</button>
       <button class="btn danger small" onclick="resetData()">Reset all progress</button>
-    </div><div class="tiny" style="margin-top:8px">Everything is stored locally on this device (localStorage). Export regularly if you switch devices.</div></div>`;
+    </div><div class="tiny" style="margin-top:8px">Progress is always kept on this device, and synced to your account when you are signed in.</div></div>`;
+}
+function syncCardHtml() {
+  const u = window.syncUser, st = window.syncStatus || '';
+  if (u) return `<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+      <div style="min-width:0"><b style="font-size:13px">☁ Syncing as ${esc(u)}</b><div class="tiny">${esc(st)}</div></div>
+      <button class="btn ghost small" onclick="syncSignOut()">Sign out</button></div></div>`;
+  return `<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+      <div style="min-width:0"><b style="font-size:13px">☁ Sync across devices</b><div class="tiny">${esc(st || 'Sign in once on each device and progress follows you automatically.')}</div></div>
+      <button class="btn small" onclick="openSyncSignIn()">Sign in</button></div></div>`;
+}
+function refreshSyncCard() { document.querySelectorAll('#syncCard').forEach(el => el.innerHTML = syncCardHtml()); if (window.syncUser && activeView() === 'home') renderHome(); }
+function openSyncSignIn() {
+  $('#gateBox').innerHTML = `
+    <div style="font-size:36px">☁</div>
+    <div class="ob-title">Sync your progress</div>
+    <div class="ob-sub">Use the same account on every device. It is the same sign-in as the Mizan daily tracker.</div>
+    <label class="fld" style="text-align:left">Email<input id="syncEmail" type="email" autocomplete="email"></label>
+    <label class="fld" style="text-align:left">Password<input id="syncPass" type="password" autocomplete="current-password"></label>
+    <div class="tiny" id="syncErr" style="color:var(--red);min-height:16px;margin-bottom:8px"></div>
+    <div class="btn-row" style="justify-content:center">
+      <button class="btn" onclick="syncAuth('signin')">Sign in</button>
+      <button class="btn ghost" onclick="syncAuth('signup')">Create account</button>
+      <button class="btn ghost" onclick="syncAuth('google')">Google</button>
+      <button class="btn ghost" onclick="closeGate()">Cancel</button>
+    </div>`;
+  $('#gateOverlay').classList.add('open');
+}
+async function syncAuth(mode) {
+  const err = $('#syncErr');
+  if (!window.syncSignIn) { err.textContent = 'Sync could not load — check your connection and reopen the app.'; return; }
+  err.style.color = 'var(--text2)'; err.textContent = 'Signing in…';
+  try { await window.syncSignIn(mode, $('#syncEmail').value.trim(), $('#syncPass').value); closeGate(); toast('Signed in — syncing'); }
+  catch (e) { err.style.color = 'var(--red)'; err.textContent = String(e.message || e).replace('Firebase: ', ''); }
 }
 function exportData() {
   const blob = new Blob([JSON.stringify(S, null, 2)], { type: 'application/json' });
@@ -746,8 +832,8 @@ function importData() {
 }
 function resetData() {
   if (!confirm('Erase ALL progress? This cannot be undone.')) return;
-  localStorage.removeItem(KEY);
-  S = load(); render(); toast('Progress reset');
+  S = { onboarded: false, lessons: {}, units: {}, srs: {}, mastery: {}, activity: {}, created: Date.now(), epoch: Date.now() };
+  save(); render(); toast('Progress reset' + (window.syncUser ? ' on all devices' : ''));
 }
 
 /* ═════════ RESOURCES ═════════ */

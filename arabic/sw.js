@@ -1,6 +1,6 @@
-const CACHE = 'mizan-arabic-v2';
+const CACHE = 'mizan-arabic-v3';
 const SHELL = [
-  './', './index.html', './manifest.json', './app.js', './tutor.js',
+  './', './index.html', './manifest.json', './app.js', './tutor.js', './sync.js',
   './data-core.js', './data-nahw-a.js', './data-nahw-b.js', './data-sarf.js',
   './icon-192.png', './icon-512.png'
 ];
