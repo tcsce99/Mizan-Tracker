@@ -1,0 +1,41 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'app.fusha.arabic'
+    compileSdk 34
+    defaultConfig {
+        applicationId "app.fusha.arabic"
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            // Debug-signed so the APK installs without a keystore.
+            // Use your own signing config for a Play Store build.
+            signingConfig signingConfigs.debug
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'androidx.webkit:webkit:1.11.0'
+}
+
+// Copy the web app (the parent fusha/ folder) into assets/www on every build,
+// so the APK always ships the same app as the web version.
+def webRoot = rootProject.projectDir.parentFile
+tasks.register('syncWebAssets', Copy) {
+    from(webRoot) {
+        include 'index.html', 'manifest.json', 'sw.js', 'app.js', 'data*.js', 'icon-*.png'
+    }
+    into layout.projectDirectory.dir('src/main/assets/www')
+}
+tasks.named('preBuild') { dependsOn 'syncWebAssets' }

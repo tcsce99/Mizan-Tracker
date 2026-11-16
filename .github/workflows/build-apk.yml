@@ -1,0 +1,42 @@
+name: Build Fusha APK
+
+# Builds the Android APK from fusha/android (a WebView wrapper around the
+# web app in fusha/). Download it from the run's "fusha-apk" artifact.
+
+on:
+  push:
+    paths:
+      - "fusha/**"
+      - ".github/workflows/build-apk.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Build APK
+        working-directory: fusha/android
+        run: ./gradlew --no-daemon assembleRelease
+
+      - name: Collect APK
+        run: |
+          mkdir -p dist
+          cp fusha/android/app/build/outputs/apk/release/app-release.apk dist/fusha.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fusha-apk
+          path: dist/fusha.apk
+          if-no-files-found: error

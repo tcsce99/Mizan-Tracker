@@ -1,0 +1,8 @@
+.gradle/
+build/
+app/build/
+local.properties
+.idea/
+*.iml
+# copied from ../ at build time by the syncWebAssets task
+app/src/main/assets/www/
